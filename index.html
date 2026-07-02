@@ -1,0 +1,2116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EduFlow — Teacher & Student Apps</title>
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com">
+    </script>
+    <!-- Supabase JS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
+    </script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+    <style>
+        /* custom scroll & transitions */
+        .fade-in {
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+        }
+        .transition-all {
+            transition: all 0.2s ease;
+        }
+        .tab-active {
+            border-bottom: 3px solid #3b82f6;
+            color: #1e293b;
+            font-weight: 600;
+        }
+        .tab-inactive {
+            border-bottom: 3px solid transparent;
+            color: #94a3b8;
+        }
+        .tab-inactive:hover {
+            color: #475569;
+            border-bottom-color: #cbd5e1;
+        }
+        .progress-bar {
+            height: 6px;
+            border-radius: 999px;
+            background: #e2e8f0;
+            overflow: hidden;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            transition: width 0.4s ease;
+        }
+        .question-option {
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 2px solid #e2e8f0;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .question-option:hover {
+            border-color: #94a3b8;
+            background: #f8fafc;
+        }
+        .question-option.selected {
+            border-color: #3b82f6;
+            background: #eff6ff;
+        }
+        .question-option.correct {
+            border-color: #22c55e;
+            background: #f0fdf4;
+        }
+        .question-option.wrong {
+            border-color: #ef4444;
+            background: #fef2f2;
+        }
+        .question-option.disabled {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 999px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        .badge-blue {
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+        .badge-green {
+            background: #dcfce7;
+            color: #16a34a;
+        }
+        .badge-yellow {
+            background: #fef9c3;
+            color: #ca8a04;
+        }
+        .badge-red {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+        .badge-gray {
+            background: #f1f5f9;
+            color: #475569;
+        }
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            animation: fadeIn 0.2s ease;
+        }
+        .modal-box {
+            background: white;
+            border-radius: 20px;
+            max-width: 600px;
+            width: 94%;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 28px 30px;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.2);
+        }
+        .topic-card {
+            border-left: 4px solid #3b82f6;
+            padding-left: 14px;
+            margin-bottom: 12px;
+        }
+        .topic-card.completed {
+            border-left-color: #22c55e;
+            opacity: 0.75;
+        }
+        .topic-card.active {
+            border-left-color: #8b5cf6;
+            background: #f5f3ff;
+            border-radius: 0 8px 8px 0;
+            padding: 10px 14px;
+        }
+        .image-preview {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 10px;
+            border: 2px solid #e2e8f0;
+        }
+        .image-preview-lg {
+            max-width: 100%;
+            max-height: 240px;
+            border-radius: 12px;
+            border: 2px solid #e2e8f0;
+            object-fit: contain;
+            background: #f8fafc;
+        }
+        .search-input {
+            padding-left: 36px;
+        }
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+        }
+        /* responsive tweaks */
+        @media (max-width: 640px) {
+            .modal-box {
+                padding: 20px 16px;
+                width: 98%;
+            }
+        }
+        /* role switcher pills */
+        .role-pill {
+            padding: 6px 20px;
+            border-radius: 999px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+        .role-pill.active-teacher {
+            background: #dbeafe;
+            border-color: #3b82f6;
+            color: #1d4ed8;
+        }
+        .role-pill.active-student {
+            background: #dbeafe;
+            border-color: #3b82f6;
+            color: #1d4ed8;
+        }
+        .role-pill.inactive {
+            background: #f1f5f9;
+            color: #64748b;
+        }
+        .role-pill.inactive:hover {
+            background: #e2e8f0;
+        }
+        .file-drop-zone {
+            border: 2px dashed #cbd5e1;
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .file-drop-zone:hover {
+            border-color: #3b82f6;
+            background: #f8fafc;
+        }
+        .file-drop-zone.dragover {
+            border-color: #3b82f6;
+            background: #eff6ff;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app" class="min-h-screen bg-gray-50 font-sans antialiased">
+
+        <!-- ==================== TOP BAR ==================== -->
+        <header class="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
+                <div class="flex items-center gap-3">
+                    <i class="fas fa-graduation-cap text-blue-600 text-2xl"></i>
+                    <span class="text-xl font-bold text-gray-800 tracking-tight">Edu<span class="text-blue-600">Flow</span></span>
+                    <span id="roleBadge" class="ml-2 text-xs font-medium bg-gray-100 text-gray-600 px-2.5 py-0.5 rounded-full">Teacher</span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <!-- Role Switcher -->
+                    <div class="flex items-center gap-1 bg-gray-100 p-1 rounded-full">
+                        <button id="roleTeacherBtn" class="role-pill active-teacher" data-role="teacher">
+                            <i class="fas fa-chalkboard-teacher mr-1.5"></i>Teacher
+                        </button>
+                        <button id="roleStudentBtn" class="role-pill inactive" data-role="student">
+                            <i class="fas fa-user-graduate mr-1.5"></i>Student
+                        </button>
+                    </div>
+                    <!-- Auth -->
+                    <div id="authSection" class="flex items-center gap-3">
+                        <div id="userInfo" class="flex items-center gap-2 hidden">
+                            <img id="userAvatar" src="" alt="avatar" class="w-8 h-8 rounded-full border-2 border-gray-200" />
+                            <span id="userName" class="text-sm font-medium text-gray-700 hidden sm:inline"></span>
+                        </div>
+                        <button id="authBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-full text-sm font-medium transition-all flex items-center gap-2">
+                            <i class="fas fa-google"></i> <span id="authBtnText">Sign in with Google</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- ==================== MAIN CONTENT ==================== -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+            <!-- ===== TEACHER VIEW ===== -->
+            <div id="teacherView" class="fade-in">
+                <!-- Teacher Dashboard -->
+                <div id="teacherDashboard">
+                    <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+                        <div>
+                            <h1 class="text-2xl font-bold text-gray-800">📚 Teacher Dashboard</h1>
+                            <p class="text-gray-500 text-sm">Manage your courses and track student progress</p>
+                        </div>
+                        <button id="createCourseBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2 shadow-sm">
+                            <i class="fas fa-plus-circle"></i> New Course
+                        </button>
+                    </div>
+
+                    <!-- Course List -->
+                    <div id="teacherCourseList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                        <!-- rendered by JS -->
+                    </div>
+                    <div id="teacherEmptyState" class="text-center py-16 hidden">
+                        <i class="fas fa-book-open text-gray-300 text-5xl mb-4"></i>
+                        <p class="text-gray-500 text-lg">No courses yet. Create your first course!</p>
+                    </div>
+                </div>
+
+                <!-- Teacher Course Editor (hidden by default) -->
+                <div id="teacherCourseEditor" class="hidden fade-in">
+                    <div class="flex items-center gap-3 mb-5">
+                        <button id="backToDashboardBtn" class="text-gray-500 hover:text-gray-700 transition-all">
+                            <i class="fas fa-arrow-left text-lg"></i>
+                        </button>
+                        <h2 id="editorTitle" class="text-2xl font-bold text-gray-800">Edit Course</h2>
+                        <span id="editorCourseId" class="text-xs text-gray-400 ml-2"></span>
+                    </div>
+
+                    <!-- Course Form -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Course Title *</label>
+                                <input id="courseTitle" type="text" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" placeholder="e.g. Introduction to Python" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Course Image URL</label>
+                                <input id="courseImageUrl" type="text" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" placeholder="https://example.com/image.jpg" />
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Description *</label>
+                            <textarea id="courseDescription" rows="2" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" placeholder="Course description..."></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Topics & Questions Tabs -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                        <div class="flex border-b border-gray-200 mb-5 gap-2">
+                            <button class="tab-btn tab-active px-4 py-2 text-sm font-medium" data-tab="topics">📖 Topics</button>
+                            <button class="tab-btn tab-inactive px-4 py-2 text-sm font-medium" data-tab="questions">❓ Practice Questions</button>
+                            <button class="tab-btn tab-inactive px-4 py-2 text-sm font-medium" data-tab="progress">📊 Student Progress</button>
+                            <button class="tab-btn tab-inactive px-4 py-2 text-sm font-medium" data-tab="import">📥 AI Import (CSV)</button>
+                        </div>
+
+                        <!-- TAB: Topics -->
+                        <div id="tabTopics" class="tab-content">
+                            <div class="flex items-center justify-between mb-4">
+                                <span class="text-sm text-gray-500">Manage course topics and content</span>
+                                <button id="addTopicBtn" class="bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5">
+                                    <i class="fas fa-plus"></i> Add Topic
+                                </button>
+                            </div>
+                            <div id="topicsList" class="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+                                <!-- rendered by JS -->
+                            </div>
+                            <div id="topicsEmpty" class="text-center py-8 text-gray-400 text-sm hidden">
+                                No topics yet. Add your first topic!
+                            </div>
+                        </div>
+
+                        <!-- TAB: Questions -->
+                        <div id="tabQuestions" class="tab-content hidden">
+                            <div class="flex items-center justify-between mb-4">
+                                <span class="text-sm text-gray-500">Practice questions with instant feedback</span>
+                                <button id="addQuestionBtn" class="bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5">
+                                    <i class="fas fa-plus"></i> Add Question
+                                </button>
+                            </div>
+                            <div id="questionsList" class="space-y-4 max-h-[400px] overflow-y-auto pr-1">
+                                <!-- rendered by JS -->
+                            </div>
+                            <div id="questionsEmpty" class="text-center py-8 text-gray-400 text-sm hidden">
+                                No practice questions yet.
+                            </div>
+                        </div>
+
+                        <!-- TAB: Progress -->
+                        <div id="tabProgress" class="tab-content hidden">
+                            <div class="flex items-center justify-between mb-4">
+                                <span class="text-sm text-gray-500">Student progress for this course</span>
+                            </div>
+                            <div id="progressList" class="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+                                <!-- rendered by JS -->
+                            </div>
+                            <div id="progressEmpty" class="text-center py-8 text-gray-400 text-sm hidden">
+                                No student progress data yet.
+                            </div>
+                        </div>
+
+                        <!-- TAB: Import CSV -->
+                        <div id="tabImport" class="tab-content hidden">
+                            <div class="mb-4">
+                                <p class="text-sm text-gray-600 mb-2">Upload a CSV file with topics and questions. The AI will generate a structured course.</p>
+                                <div class="text-xs text-gray-400 bg-gray-50 p-3 rounded-xl border border-gray-200 mb-4">
+                                    <strong>CSV Format:</strong> <code>topic, content, question, option_a, option_b, option_c, option_d, correct_answer, reasoning</code>
+                                    <br />Leave question fields empty for topics without questions.
+                                </div>
+                                <div id="csvDropZone" class="file-drop-zone">
+                                    <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
+                                    <p class="text-gray-500 text-sm">Drop CSV file here or click to browse</p>
+                                    <input type="file" id="csvFileInput" accept=".csv" class="hidden" />
+                                    <button id="csvBrowseBtn" class="mt-3 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-1.5 rounded-lg text-sm transition-all">Browse</button>
+                                </div>
+                                <div id="csvPreview" class="mt-4 hidden">
+                                    <p class="text-sm font-medium text-green-600"><i class="fas fa-check-circle"></i> File loaded: <span id="csvFileName"></span></p>
+                                    <button id="csvImportBtn" class="mt-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition-all">Import Course</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Save Course -->
+                        <div class="mt-6 pt-4 border-t border-gray-200 flex justify-end gap-3">
+                            <button id="deleteCourseBtn" class="text-red-500 hover:text-red-700 text-sm font-medium transition-all px-4 py-2">Delete Course</button>
+                            <button id="saveCourseBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl text-sm font-medium transition-all shadow-sm flex items-center gap-2">
+                                <i class="fas fa-save"></i> Save Course
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Topic Editor Modal -->
+                <div id="topicModal" class="modal-overlay hidden">
+                    <div class="modal-box">
+                        <h3 id="topicModalTitle" class="text-xl font-bold text-gray-800 mb-4">Add Topic</h3>
+                        <input id="topicTitleInput" type="text" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 mb-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" placeholder="Topic title" />
+                        <textarea id="topicContentInput" rows="4" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 mb-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" placeholder="Topic content (supports HTML)"></textarea>
+                        <div class="mb-3">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Images</label>
+                            <div class="flex flex-wrap gap-2 items-center">
+                                <input id="topicImageInput" type="text" class="flex-1 border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" placeholder="Image URL" />
+                                <button id="topicImageUploadBtn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2.5 rounded-xl text-sm transition-all">
+                                    <i class="fas fa-upload"></i> Upload
+                                </button>
+                            </div>
+                            <div id="topicImagePreview" class="mt-2 flex flex-wrap gap-2"></div>
+                            <input type="file" id="topicImageFileInput" accept="image/*" class="hidden" />
+                        </div>
+                        <div class="flex justify-end gap-3 mt-2">
+                            <button id="topicModalCancel" class="px-4 py-2 text-gray-500 hover:text-gray-700 transition-all">Cancel</button>
+                            <button id="topicModalSave" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-sm font-medium transition-all">Save Topic</button>
+                        </div>
+                        <input type="hidden" id="topicModalIndex" value="-1" />
+                    </div>
+                </div>
+
+                <!-- Question Editor Modal -->
+                <div id="questionModal" class="modal-overlay hidden">
+                    <div class="modal-box">
+                        <h3 id="questionModalTitle" class="text-xl font-bold text-gray-800 mb-4">Add Practice Question</h3>
+                        <textarea id="questionTextInput" rows="2" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 mb-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" placeholder="Question text"></textarea>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                            <input id="qOptA" type="text" class="border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" placeholder="Option A" />
+                            <input id="qOptB" type="text" class="border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" placeholder="Option B" />
+                            <input id="qOptC" type="text" class="border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" placeholder="Option C" />
+                            <input id="qOptD" type="text" class="border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" placeholder="Option D" />
+                        </div>
+                        <div class="grid grid-cols-2 gap-3 mb-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Correct Answer</label>
+                                <select id="qCorrect" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+                                    <option value="A">A</option>
+                                    <option value="B">B</option>
+                                    <option value="C">C</option>
+                                    <option value="D">D</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Reasoning</label>
+                                <input id="qReasoning" type="text" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" placeholder="Explanation" />
+                            </div>
+                        </div>
+                        <div class="flex justify-end gap-3 mt-2">
+                            <button id="questionModalCancel" class="px-4 py-2 text-gray-500 hover:text-gray-700 transition-all">Cancel</button>
+                            <button id="questionModalSave" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-sm font-medium transition-all">Save Question</button>
+                        </div>
+                        <input type="hidden" id="questionModalIndex" value="-1" />
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== STUDENT VIEW ===== -->
+            <div id="studentView" class="hidden fade-in">
+                <!-- Student Dashboard -->
+                <div id="studentDashboard">
+                    <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+                        <div>
+                            <h1 class="text-2xl font-bold text-gray-800">🎓 Student Portal</h1>
+                            <p class="text-gray-500 text-sm">Browse and take courses, track your progress</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="relative">
+                                <i class="fas fa-search search-icon"></i>
+                                <input id="courseSearchInput" type="text" class="search-input border border-gray-300 rounded-xl px-4 py-2 pl-10 w-48 sm:w-64 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" placeholder="Search courses..." />
+                            </div>
+                            <select id="courseFilterSelect" class="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white">
+                                <option value="all">All</option>
+                                <option value="my">My Courses</option>
+                            </select>
+                            <select id="courseSortSelect" class="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white">
+                                <option value="newest">Newest</option>
+                                <option value="oldest">Oldest</option>
+                                <option value="title">Title A-Z</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Student Course List -->
+                    <div id="studentCourseList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                        <!-- rendered by JS -->
+                    </div>
+                    <div id="studentEmptyState" class="text-center py-16 hidden">
+                        <i class="fas fa-book-open text-gray-300 text-5xl mb-4"></i>
+                        <p class="text-gray-500 text-lg">No courses available. Check back later!</p>
+                    </div>
+                </div>
+
+                <!-- Student Course Player (hidden by default) -->
+                <div id="studentCoursePlayer" class="hidden fade-in">
+                    <div class="flex items-center gap-3 mb-5">
+                        <button id="backToStudentDashboardBtn" class="text-gray-500 hover:text-gray-700 transition-all">
+                            <i class="fas fa-arrow-left text-lg"></i>
+                        </button>
+                        <h2 id="playerCourseTitle" class="text-2xl font-bold text-gray-800"></h2>
+                        <span id="playerProgressBadge" class="badge badge-blue ml-auto">0%</span>
+                    </div>
+
+                    <!-- Progress bar -->
+                    <div class="progress-bar mb-5">
+                        <div id="playerProgressFill" class="progress-bar-fill" style="width:0%"></div>
+                    </div>
+
+                    <!-- Topic navigation -->
+                    <div class="flex flex-wrap gap-2 mb-5">
+                        <button id="playerPrevTopic" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm transition-all flex items-center gap-1.5">
+                            <i class="fas fa-chevron-left text-xs"></i> Prev
+                        </button>
+                        <button id="playerNextTopic" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm transition-all flex items-center gap-1.5">
+                            Next <i class="fas fa-chevron-right text-xs"></i>
+                        </button>
+                        <button id="playerResetProgress" class="text-red-500 hover:text-red-700 text-sm px-3 py-1.5 transition-all">Reset Progress</button>
+                    </div>
+
+                    <!-- Topic content -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+                        <div id="playerTopicContent">
+                            <!-- rendered by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Practice questions for this topic -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                        <h4 class="font-semibold text-gray-700 mb-3">📝 Practice Questions</h4>
+                        <div id="playerQuestions">
+                            <!-- rendered by JS -->
+                        </div>
+                        <div id="playerQuestionsEmpty" class="text-center py-6 text-gray-400 text-sm hidden">
+                            No practice questions for this topic.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- ==================== FOOTER ==================== -->
+        <footer class="border-t border-gray-200 bg-white mt-10 py-4 text-center text-sm text-gray-400">
+            EduFlow &bull; Built with Supabase &bull; Google Auth
+        </footer>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- ======================== JAVASCRIPT ========================== -->
+    <!-- ============================================================ -->
+    <script>
+        (function() {
+            'use strict';
+
+            // ============================================================
+            // 1. SUPABASE CONFIG
+            // ============================================================
+            const SUPABASE_URL = 'https://your-project-url.supabase.co'; // <-- REPLACE
+            const SUPABASE_ANON_KEY = 'your-anon-key'; // <-- REPLACE
+
+            // For demo, we'll use a mock/fallback if keys are not set
+            // In production, you must set these.
+
+            let supabase;
+            try {
+                const { createClient } = supabaseJs;
+                supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            } catch (e) {
+                console.warn('Supabase client init error, using mock client for demo.', e);
+                // Mock client for demo (localStorage fallback)
+                supabase = createMockSupabase();
+            }
+
+            function createMockSupabase() {
+                // Simple localStorage-based mock for demo
+                return {
+                    auth: {
+                        signInWithOAuth: (params) => {
+                            console.log('Mock: signInWithOAuth', params);
+                            // Simulate login
+                            const user = { id: 'mock-user-1', email: 'demo@example.com', user_metadata: { full_name: 'Demo User',
+                                    avatar_url: '' } };
+                            localStorage.setItem('mock_user', JSON.stringify(user));
+                            return Promise.resolve({ data: { user }, error: null });
+                        },
+                        signOut: () => {
+                            localStorage.removeItem('mock_user');
+                            return Promise.resolve({ error: null });
+                        },
+                        getSession: () => {
+                            const u = localStorage.getItem('mock_user');
+                            return Promise.resolve({ data: { session: u ? { user: JSON.parse(u) } : null }, error: null });
+                        },
+                        onAuthStateChange: (cb) => {
+                            // Not implemented
+                            return { data: { subscription: { unsubscribe: () => {} } } };
+                        }
+                    },
+                    from: (table) => ({
+                        select: (cols) => ({
+                            order: (col, opts) => {
+                                const data = getMockData(table);
+                                return Promise.resolve({ data, error: null });
+                            },
+                            eq: (col, val) => ({
+                                select: (cols) => ({
+                                    single: () => {
+                                        const data = getMockData(table).find(d => d[col] === val);
+                                        return Promise.resolve({ data, error: null });
+                                    },
+                                    order: (c, o) => {
+                                        const d = getMockData(table).filter(x => x[col] === val);
+                                        return Promise.resolve({ data: d, error: null });
+                                    }
+                                })
+                            }),
+                            ilike: (col, pattern) => ({
+                                order: (c, o) => {
+                                    const d = getMockData(table).filter(x => x[col] && x[col].toLowerCase().includes(pattern
+                                        .replace(/%/g, '').toLowerCase()));
+                                    return Promise.resolve({ data: d, error: null });
+                                }
+                            })
+                        }),
+                        insert: (data) => {
+                            const d = Array.isArray(data) ? data : [data];
+                            const tableData = getMockData(table);
+                            d.forEach(item => { item.id = item.id || 'mock-' + Date.now() + '-' + Math.random()
+                                    .toString(36).slice(2, 6);
+                                tableData.push(item); });
+                            saveMockData(table, tableData);
+                            return Promise.resolve({ data: d, error: null });
+                        },
+                        update: (data) => ({
+                            eq: (col, val) => {
+                                const tableData = getMockData(table);
+                                const idx = tableData.findIndex(d => d[col] === val);
+                                if (idx >= 0) { Object.assign(tableData[idx], data); }
+                                saveMockData(table, tableData);
+                                return Promise.resolve({ data: [tableData[idx]], error: null });
+                            }
+                        }),
+                        delete: () => ({
+                            eq: (col, val) => {
+                                let tableData = getMockData(table);
+                                tableData = tableData.filter(d => d[col] !== val);
+                                saveMockData(table, tableData);
+                                return Promise.resolve({ error: null });
+                            }
+                        })
+                    }),
+                    storage: {
+                        from: (bucket) => ({
+                            upload: (path, file) => {
+                                console.log('Mock: upload', bucket, path, file);
+                                // Store as data URL for demo
+                                const reader = new FileReader();
+                                return new Promise((resolve) => {
+                                    reader.onload = (e) => {
+                                        const url = e.target.result;
+                                        const imgData = { path, url, bucket };
+                                        const images = JSON.parse(localStorage.getItem('mock_images') || '[]');
+                                        images.push(imgData);
+                                        localStorage.setItem('mock_images', JSON.stringify(images));
+                                        resolve({ data: { path }, error: null });
+                                    };
+                                    reader.readAsDataURL(file);
+                                });
+                            },
+                            getPublicUrl: (path) => {
+                                const images = JSON.parse(localStorage.getItem('mock_images') || '[]');
+                                const found = images.find(i => i.path === path);
+                                return { data: { publicUrl: found ? found.url : '' } };
+                            }
+                        })
+                    }
+                };
+            }
+
+            // Mock data helpers
+            function getMockData(table) {
+                const key = 'mock_' + table;
+                const data = localStorage.getItem(key);
+                return data ? JSON.parse(data) : [];
+            }
+
+            function saveMockData(table, data) {
+                localStorage.setItem('mock_' + table, JSON.stringify(data));
+            }
+
+            // ============================================================
+            // 2. APP STATE
+            // ============================================================
+            const state = {
+                role: 'teacher', // 'teacher' | 'student'
+                user: null,
+                session: null,
+                courses: [],
+                currentCourse: null,
+                currentCourseId: null,
+                editingTopicIndex: -1,
+                editingQuestionIndex: -1,
+                // Student player state
+                playerCourse: null,
+                playerTopicIndex: 0,
+                playerProgress: null, // { completed_topics: [], current_topic: 0 }
+                studentAnswers: {}, // { questionId: selectedOption }
+                // UI
+                view: 'dashboard', // 'dashboard' | 'editor' | 'player'
+            };
+
+            // ============================================================
+            // 3. DOM REFS
+            // ============================================================
+            const $ = (sel) => document.querySelector(sel);
+            const $$ = (sel) => document.querySelectorAll(sel);
+
+            const DOM = {
+                // Role
+                roleTeacherBtn: $('#roleTeacherBtn'),
+                roleStudentBtn: $('#roleStudentBtn'),
+                roleBadge: $('#roleBadge'),
+
+                // Auth
+                authBtn: $('#authBtn'),
+                authBtnText: $('#authBtnText'),
+                userInfo: $('#userInfo'),
+                userAvatar: $('#userAvatar'),
+                userName: $('#userName'),
+
+                // Views
+                teacherView: $('#teacherView'),
+                studentView: $('#studentView'),
+
+                // Teacher
+                teacherDashboard: $('#teacherDashboard'),
+                teacherCourseList: $('#teacherCourseList'),
+                teacherEmptyState: $('#teacherEmptyState'),
+                createCourseBtn: $('#createCourseBtn'),
+                backToDashboardBtn: $('#backToDashboardBtn'),
+                teacherCourseEditor: $('#teacherCourseEditor'),
+                editorTitle: $('#editorTitle'),
+                editorCourseId: $('#editorCourseId'),
+                courseTitle: $('#courseTitle'),
+                courseImageUrl: $('#courseImageUrl'),
+                courseDescription: $('#courseDescription'),
+                saveCourseBtn: $('#saveCourseBtn'),
+                deleteCourseBtn: $('#deleteCourseBtn'),
+
+                // Topics
+                topicsList: $('#topicsList'),
+                topicsEmpty: $('#topicsEmpty'),
+                addTopicBtn: $('#addTopicBtn'),
+                topicModal: $('#topicModal'),
+                topicModalTitle: $('#topicModalTitle'),
+                topicTitleInput: $('#topicTitleInput'),
+                topicContentInput: $('#topicContentInput'),
+                topicImageInput: $('#topicImageInput'),
+                topicImagePreview: $('#topicImagePreview'),
+                topicImageUploadBtn: $('#topicImageUploadBtn'),
+                topicImageFileInput: $('#topicImageFileInput'),
+                topicModalSave: $('#topicModalSave'),
+                topicModalCancel: $('#topicModalCancel'),
+                topicModalIndex: $('#topicModalIndex'),
+
+                // Questions
+                questionsList: $('#questionsList'),
+                questionsEmpty: $('#questionsEmpty'),
+                addQuestionBtn: $('#addQuestionBtn'),
+                questionModal: $('#questionModal'),
+                questionModalTitle: $('#questionModalTitle'),
+                questionTextInput: $('#questionTextInput'),
+                qOptA: $('#qOptA'),
+                qOptB: $('#qOptB'),
+                qOptC: $('#qOptC'),
+                qOptD: $('#qOptD'),
+                qCorrect: $('#qCorrect'),
+                qReasoning: $('#qReasoning'),
+                questionModalSave: $('#questionModalSave'),
+                questionModalCancel: $('#questionModalCancel'),
+                questionModalIndex: $('#questionModalIndex'),
+
+                // Progress tab
+                progressList: $('#progressList'),
+                progressEmpty: $('#progressEmpty'),
+
+                // Import CSV
+                csvDropZone: $('#csvDropZone'),
+                csvFileInput: $('#csvFileInput'),
+                csvBrowseBtn: $('#csvBrowseBtn'),
+                csvPreview: $('#csvPreview'),
+                csvFileName: $('#csvFileName'),
+                csvImportBtn: $('#csvImportBtn'),
+
+                // Tabs
+                tabBtns: $$('.tab-btn'),
+                tabContents: {
+                    topics: $('#tabTopics'),
+                    questions: $('#tabQuestions'),
+                    progress: $('#tabProgress'),
+                    import: $('#tabImport'),
+                },
+
+                // Student
+                studentDashboard: $('#studentDashboard'),
+                studentCourseList: $('#studentCourseList'),
+                studentEmptyState: $('#studentEmptyState'),
+                courseSearchInput: $('#courseSearchInput'),
+                courseFilterSelect: $('#courseFilterSelect'),
+                courseSortSelect: $('#courseSortSelect'),
+                backToStudentDashboardBtn: $('#backToStudentDashboardBtn'),
+                studentCoursePlayer: $('#studentCoursePlayer'),
+                playerCourseTitle: $('#playerCourseTitle'),
+                playerProgressBadge: $('#playerProgressBadge'),
+                playerProgressFill: $('#playerProgressFill'),
+                playerPrevTopic: $('#playerPrevTopic'),
+                playerNextTopic: $('#playerNextTopic'),
+                playerResetProgress: $('#playerResetProgress'),
+                playerTopicContent: $('#playerTopicContent'),
+                playerQuestions: $('#playerQuestions'),
+                playerQuestionsEmpty: $('#playerQuestionsEmpty'),
+            };
+
+            // ============================================================
+            // 4. HELPERS
+            // ============================================================
+            function generateId() {
+                return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+            }
+
+            function formatDate(ts) {
+                if (!ts) return 'N/A';
+                const d = new Date(ts);
+                return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            }
+
+            function truncate(str, n = 60) {
+                return str && str.length > n ? str.slice(0, n) + '...' : str || '';
+            }
+
+            function getInitials(name) {
+                return name ? name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) : 'U';
+            }
+
+            // ============================================================
+            // 5. SUPABASE OPERATIONS
+            // ============================================================
+            const DB = {
+                async getCourses() {
+                    const { data, error } = await supabase
+                        .from('courses')
+                        .select('*')
+                        .order('created_at', { ascending: false });
+                    if (error) { console.error('getCourses error:', error); return []; }
+                    return data || [];
+                },
+
+                async getCourse(id) {
+                    const { data, error } = await supabase
+                        .from('courses')
+                        .select('*')
+                        .eq('id', id)
+                        .single();
+                    if (error) { console.error('getCourse error:', error); return null; }
+                    return data;
+                },
+
+                async saveCourse(course) {
+                    // If it has an id, update; else insert
+                    if (course.id) {
+                        const { data, error } = await supabase
+                            .from('courses')
+                            .update(course)
+                            .eq('id', course.id);
+                        if (error) { console.error('update course error:', error); return null; }
+                        return data;
+                    } else {
+                        const { data, error } = await supabase
+                            .from('courses')
+                            .insert([course]);
+                        if (error) { console.error('insert course error:', error); return null; }
+                        return data;
+                    }
+                },
+
+                async deleteCourse(id) {
+                    const { error } = await supabase
+                        .from('courses')
+                        .delete()
+                        .eq('id', id);
+                    if (error) { console.error('delete course error:', error); return false; }
+                    return true;
+                },
+
+                async getStudentProgress(courseId, studentId) {
+                    const { data, error } = await supabase
+                        .from('student_progress')
+                        .select('*')
+                        .eq('course_id', courseId)
+                        .eq('student_id', studentId)
+                        .single();
+                    if (error && error.code !== 'PGRST116') { console.error('getStudentProgress error:', error); }
+                    return data || null;
+                },
+
+                async saveStudentProgress(progress) {
+                    if (progress.id) {
+                        const { data, error } = await supabase
+                            .from('student_progress')
+                            .update(progress)
+                            .eq('id', progress.id);
+                        if (error) { console.error('update progress error:', error); return null; }
+                        return data;
+                    } else {
+                        const { data, error } = await supabase
+                            .from('student_progress')
+                            .insert([progress]);
+                        if (error) { console.error('insert progress error:', error); return null; }
+                        return data;
+                    }
+                },
+
+                async getPracticeAnswers(courseId, studentId) {
+                    const { data, error } = await supabase
+                        .from('practice_answers')
+                        .select('*')
+                        .eq('course_id', courseId)
+                        .eq('student_id', studentId);
+                    if (error) { console.error('getPracticeAnswers error:', error); return []; }
+                    return data || [];
+                },
+
+                async savePracticeAnswer(answer) {
+                    const { data, error } = await supabase
+                        .from('practice_answers')
+                        .insert([answer]);
+                    if (error) { console.error('savePracticeAnswer error:', error); return null; }
+                    return data;
+                },
+
+                async getAllProgressForCourse(courseId) {
+                    const { data, error } = await supabase
+                        .from('student_progress')
+                        .select('*')
+                        .eq('course_id', courseId);
+                    if (error) { console.error('getAllProgress error:', error); return []; }
+                    return data || [];
+                },
+
+                async uploadImage(bucket, path, file) {
+                    const { data, error } = await supabase.storage
+                        .from(bucket)
+                        .upload(path, file);
+                    if (error) { console.error('uploadImage error:', error); return null; }
+                    const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(path);
+                    return urlData.publicUrl;
+                }
+            };
+
+            // ============================================================
+            // 6. AUTH
+            // ============================================================
+            async function handleAuth() {
+                if (state.user) {
+                    // Sign out
+                    await supabase.auth.signOut();
+                    state.user = null;
+                    state.session = null;
+                    updateAuthUI();
+                    await loadCourses();
+                    renderAll();
+                    return;
+                }
+
+                // Sign in with Google
+                const { data, error } = await supabase.auth.signInWithOAuth({
+                    provider: 'google',
+                    options: {
+                        redirectTo: window.location.origin,
+                    },
+                });
+                if (error) {
+                    console.error('Auth error:', error);
+                    alert('Sign in failed: ' + error.message);
+                }
+            }
+
+            async function checkAuth() {
+                const { data: { session }, error } = await supabase.auth.getSession();
+                if (error) { console.error('getSession error:', error); return; }
+                if (session) {
+                    state.session = session;
+                    state.user = session.user;
+                } else {
+                    // Check mock
+                    const mockUser = localStorage.getItem('mock_user');
+                    if (mockUser) {
+                        state.user = JSON.parse(mockUser);
+                        state.session = { user: state.user };
+                    }
+                }
+                updateAuthUI();
+                if (state.user) {
+                    await loadCourses();
+                    renderAll();
+                } else {
+                    renderAll();
+                }
+            }
+
+            function updateAuthUI() {
+                if (state.user) {
+                    DOM.userInfo.classList.remove('hidden');
+                    const name = state.user.user_metadata?.full_name || state.user.email || 'User';
+                    DOM.userName.textContent = name;
+                    DOM.userAvatar.src = state.user.user_metadata?.avatar_url || '';
+                    DOM.userAvatar.onerror = () => { DOM.userAvatar.src =
+                        'https://ui-avatars.com/api/?name=' + encodeURIComponent(name) + '&background=3b82f6&color=fff'; };
+                    DOM.authBtnText.textContent = 'Sign Out';
+                } else {
+                    DOM.userInfo.classList.add('hidden');
+                    DOM.authBtnText.textContent = 'Sign in with Google';
+                }
+            }
+
+            // ============================================================
+            // 7. COURSE LOADING
+            // ============================================================
+            async function loadCourses() {
+                state.courses = await DB.getCourses();
+                // If no courses and in mock mode, seed some demo data
+                if (state.courses.length === 0 && !SUPABASE_URL.includes('your-project-url')) {
+                    // Only seed if using real supabase with no data
+                }
+                // For mock, seed if empty
+                if (state.courses.length === 0) {
+                    seedMockData();
+                    state.courses = await DB.getCourses();
+                }
+            }
+
+            function seedMockData() {
+                const existing = getMockData('courses');
+                if (existing.length > 0) return;
+                const courses = [{
+                    id: 'c1',
+                    title: 'Introduction to Python',
+                    description: 'Learn Python programming from scratch with hands-on examples.',
+                    teacher_id: 'mock-user-1',
+                    image_url: 'https://images.unsplash.com/photo-1526379879524-6fc955569f6c?w=400&h=200&fit=crop',
+                    topics: [
+                        { title: 'Getting Started', content: 'Python is a high-level, interpreted language...', images: [] },
+                        { title: 'Variables & Data Types', content: 'Python supports int, float, str, bool...',
+                        images: [] },
+                        { title: 'Control Flow', content: 'if, elif, else, for, while loops...', images: [] },
+                    ],
+                    practice_questions: [
+                        { id: 'q1', question: 'What is the output of print(2**3)?', options: ['6', '8', '9', '12'],
+                            correct: 'B', reasoning: '2**3 means 2 raised to the power of 3, which is 8.' },
+                        { id: 'q2', question: 'Which of these is NOT a Python data type?', options: ['int', 'str',
+                                'char', 'bool'
+                            ], correct: 'C', reasoning: 'Python does not have a "char" type; strings are used.' },
+                    ],
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                }, {
+                    id: 'c2',
+                    title: 'Web Development with React',
+                    description: 'Build modern web applications with React and Tailwind CSS.',
+                    teacher_id: 'mock-user-1',
+                    image_url: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=200&fit=crop',
+                    topics: [
+                        { title: 'React Basics', content: 'Components, JSX, props, state...', images: [] },
+                        { title: 'Hooks', content: 'useState, useEffect, useContext...', images: [] },
+                    ],
+                    practice_questions: [
+                        { id: 'q3', question: 'What hook is used for side effects in React?', options: ['useState',
+                                'useEffect', 'useContext', 'useReducer'
+                            ], correct: 'B', reasoning: 'useEffect is used for side effects in functional components.' },
+                    ],
+                    created_at: new Date(Date.now() - 86400000).toISOString(),
+                    updated_at: new Date(Date.now() - 86400000).toISOString(),
+                }, {
+                    id: 'c3',
+                    title: 'Data Science Fundamentals',
+                    description: 'Introduction to data science, statistics, and machine learning.',
+                    teacher_id: 'mock-user-1',
+                    image_url: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&h=200&fit=crop',
+                    topics: [
+                        { title: 'Statistics', content: 'Mean, median, mode, standard deviation...', images: [] },
+                        { title: 'Machine Learning', content: 'Supervised vs unsupervised learning...', images: [] },
+                    ],
+                    practice_questions: [],
+                    created_at: new Date(Date.now() - 172800000).toISOString(),
+                    updated_at: new Date(Date.now() - 172800000).toISOString(),
+                }];
+                courses.forEach(c => {
+                    const existing = getMockData('courses');
+                    if (!existing.find(x => x.id === c.id)) {
+                        const d = getMockData('courses');
+                        d.push(c);
+                        saveMockData('courses', d);
+                    }
+                });
+            }
+
+            // ============================================================
+            // 8. RENDER FUNCTIONS
+            // ============================================================
+            function renderAll() {
+                if (state.role === 'teacher') {
+                    renderTeacherView();
+                } else {
+                    renderStudentView();
+                }
+                updateRoleUI();
+            }
+
+            // ---------- ROLE UI ----------
+            function updateRoleUI() {
+                const isTeacher = state.role === 'teacher';
+                DOM.teacherView.classList.toggle('hidden', !isTeacher);
+                DOM.studentView.classList.toggle('hidden', isTeacher);
+                DOM.roleBadge.textContent = isTeacher ? 'Teacher' : 'Student';
+                DOM.roleTeacherBtn.className = 'role-pill ' + (isTeacher ? 'active-teacher' : 'inactive');
+                DOM.roleStudentBtn.className = 'role-pill ' + (isTeacher ? 'inactive' : 'active-student');
+            }
+
+            // ---------- TEACHER ----------
+            function renderTeacherView() {
+                if (state.view === 'editor' && state.currentCourseId) {
+                    renderTeacherEditor();
+                    return;
+                }
+                state.view = 'dashboard';
+                DOM.teacherDashboard.classList.remove('hidden');
+                DOM.teacherCourseEditor.classList.add('hidden');
+                renderTeacherCourseList();
+            }
+
+            function renderTeacherCourseList() {
+                const container = DOM.teacherCourseList;
+                const empty = DOM.teacherEmptyState;
+                const courses = state.courses || [];
+
+                if (courses.length === 0) {
+                    container.innerHTML = '';
+                    empty.classList.remove('hidden');
+                    return;
+                }
+                empty.classList.add('hidden');
+
+                container.innerHTML = courses.map(c => `
+                        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden card-hover transition-all">
+                            ${c.image_url ? `<img src="${c.image_url}" alt="${c.title}" class="w-full h-40 object-cover" />` : `<div class="w-full h-40 bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center text-gray-400"><i class="fas fa-book-open text-4xl"></i></div>`}
+                            <div class="p-5">
+                                <h3 class="font-bold text-gray-800 text-lg truncate">${c.title}</h3>
+                                <p class="text-gray-500 text-sm mt-1 line-clamp-2">${truncate(c.description, 80)}</p>
+                                <div class="flex items-center gap-2 mt-3 flex-wrap">
+                                    <span class="badge badge-blue">${c.topics?.length || 0} topics</span>
+                                    <span class="badge badge-gray">${c.practice_questions?.length || 0} questions</span>
+                                </div>
+                                <div class="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
+                                    <span class="text-xs text-gray-400">${formatDate(c.created_at)}</span>
+                                    <button class="edit-course-btn bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-1.5 rounded-lg text-sm font-medium transition-all" data-course-id="${c.id}">
+                                        <i class="fas fa-edit"></i> Edit
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+
+                container.querySelectorAll('.edit-course-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const id = btn.dataset.courseId;
+                        openCourseEditor(id);
+                    });
+                });
+            }
+
+            async function openCourseEditor(courseId) {
+                state.currentCourseId = courseId;
+                const course = state.courses.find(c => c.id === courseId);
+                if (course) {
+                    state.currentCourse = JSON.parse(JSON.stringify(course));
+                } else if (courseId === 'new') {
+                    state.currentCourse = {
+                        id: null,
+                        title: '',
+                        description: '',
+                        image_url: '',
+                        topics: [],
+                        practice_questions: [],
+                        teacher_id: state.user?.id || 'mock-user-1',
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                    };
+                } else {
+                    // Load from DB
+                    const loaded = await DB.getCourse(courseId);
+                    if (loaded) {
+                        state.currentCourse = loaded;
+                        // Update in state.courses
+                        const idx = state.courses.findIndex(c => c.id === courseId);
+                        if (idx >= 0) state.courses[idx] = loaded;
+                    } else {
+                        alert('Course not found');
+                        return;
+                    }
+                }
+                state.view = 'editor';
+                DOM.teacherDashboard.classList.add('hidden');
+                DOM.teacherCourseEditor.classList.remove('hidden');
+                renderTeacherEditor();
+            }
+
+            function renderTeacherEditor() {
+                const c = state.currentCourse;
+                if (!c) return;
+
+                DOM.editorTitle.textContent = c.id ? 'Edit Course' : 'Create New Course';
+                DOM.editorCourseId.textContent = c.id ? 'ID: ' + c.id : 'New';
+                DOM.courseTitle.value = c.title || '';
+                DOM.courseImageUrl.value = c.image_url || '';
+                DOM.courseDescription.value = c.description || '';
+
+                // Render topics
+                renderTopics();
+                renderQuestions();
+                renderProgress();
+                renderCSVPreview();
+
+                // Reset tab
+                switchTab('topics');
+
+                // Update save/delete buttons
+                DOM.deleteCourseBtn.style.display = c.id ? 'inline-block' : 'none';
+            }
+
+            function renderTopics() {
+                const c = state.currentCourse;
+                const container = DOM.topicsList;
+                const empty = DOM.topicsEmpty;
+                const topics = c?.topics || [];
+
+                if (topics.length === 0) {
+                    container.innerHTML = '';
+                    empty.classList.remove('hidden');
+                    return;
+                }
+                empty.classList.add('hidden');
+
+                container.innerHTML = topics.map((t, i) => `
+                        <div class="topic-card flex items-start justify-between gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-all">
+                            <div class="flex-1 min-w-0">
+                                <div class="font-medium text-gray-800">${t.title || 'Untitled'}</div>
+                                <div class="text-sm text-gray-500 line-clamp-2">${truncate(t.content || '', 60)}</div>
+                                ${t.images && t.images.length > 0 ? `<div class="flex gap-1 mt-1"><i class="fas fa-image text-xs text-gray-400"></i><span class="text-xs text-gray-400">${t.images.length} images</span></div>` : ''}
+                            </div>
+                            <div class="flex gap-1 flex-shrink-0">
+                                <button class="edit-topic-btn text-gray-400 hover:text-blue-600 p-1.5 rounded-lg hover:bg-blue-50 transition-all" data-index="${i}"><i class="fas fa-edit text-sm"></i></button>
+                                <button class="delete-topic-btn text-gray-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition-all" data-index="${i}"><i class="fas fa-trash text-sm"></i></button>
+                            </div>
+                        </div>
+                    `).join('');
+
+                container.querySelectorAll('.edit-topic-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const idx = parseInt(btn.dataset.index);
+                        openTopicModal(idx);
+                    });
+                });
+                container.querySelectorAll('.delete-topic-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const idx = parseInt(btn.dataset.index);
+                        if (confirm('Delete this topic?')) {
+                            state.currentCourse.topics.splice(idx, 1);
+                            renderTopics();
+                        }
+                    });
+                });
+            }
+
+            function renderQuestions() {
+                const c = state.currentCourse;
+                const container = DOM.questionsList;
+                const empty = DOM.questionsEmpty;
+                const questions = c?.practice_questions || [];
+
+                if (questions.length === 0) {
+                    container.innerHTML = '';
+                    empty.classList.remove('hidden');
+                    return;
+                }
+                empty.classList.add('hidden');
+
+                container.innerHTML = questions.map((q, i) => `
+                        <div class="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-blue-200 transition-all">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="flex-1">
+                                    <div class="font-medium text-gray-800">Q${i+1}: ${truncate(q.question || '', 80)}</div>
+                                    <div class="flex flex-wrap gap-1 mt-1 text-xs text-gray-500">
+                                        <span class="badge badge-gray">A: ${q.options?.[0] || ''}</span>
+                                        <span class="badge badge-gray">B: ${q.options?.[1] || ''}</span>
+                                        <span class="badge badge-gray">C: ${q.options?.[2] || ''}</span>
+                                        <span class="badge badge-gray">D: ${q.options?.[3] || ''}</span>
+                                        <span class="badge badge-green">Correct: ${q.correct}</span>
+                                    </div>
+                                    ${q.reasoning ? `<div class="text-xs text-gray-400 mt-1">💡 ${truncate(q.reasoning, 50)}</div>` : ''}
+                                </div>
+                                <div class="flex gap-1 flex-shrink-0">
+                                    <button class="edit-question-btn text-gray-400 hover:text-blue-600 p-1.5 rounded-lg hover:bg-blue-50 transition-all" data-index="${i}"><i class="fas fa-edit text-sm"></i></button>
+                                    <button class="delete-question-btn text-gray-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition-all" data-index="${i}"><i class="fas fa-trash text-sm"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+
+                container.querySelectorAll('.edit-question-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const idx = parseInt(btn.dataset.index);
+                        openQuestionModal(idx);
+                    });
+                });
+                container.querySelectorAll('.delete-question-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const idx = parseInt(btn.dataset.index);
+                        if (confirm('Delete this question?')) {
+                            state.currentCourse.practice_questions.splice(idx, 1);
+                            renderQuestions();
+                        }
+                    });
+                });
+            }
+
+            async function renderProgress() {
+                const container = DOM.progressList;
+                const empty = DOM.progressEmpty;
+                const c = state.currentCourse;
+                if (!c || !c.id) {
+                    container.innerHTML = '';
+                    empty.classList.remove('hidden');
+                    return;
+                }
+
+                const progressData = await DB.getAllProgressForCourse(c.id);
+                if (progressData.length === 0) {
+                    container.innerHTML = '';
+                    empty.classList.remove('hidden');
+                    return;
+                }
+                empty.classList.add('hidden');
+
+                const totalTopics = c.topics?.length || 1;
+                container.innerHTML = progressData.map(p => {
+                    const completed = p.completed_topics?.length || 0;
+                    const pct = Math.round((completed / totalTopics) * 100);
+                    return `
+                            <div class="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <span class="font-medium text-gray-800">Student: ${p.student_id || 'Unknown'}</span>
+                                        <span class="text-xs text-gray-400 ml-2">${formatDate(p.started_at)}</span>
+                                    </div>
+                                    <span class="badge ${pct >= 80 ? 'badge-green' : pct >= 40 ? 'badge-yellow' : 'badge-red'}">${pct}%</span>
+                                </div>
+                                <div class="progress-bar mt-2">
+                                    <div class="progress-bar-fill" style="width:${pct}%"></div>
+                                </div>
+                                <div class="text-xs text-gray-400 mt-1">${completed}/${totalTopics} topics completed</div>
+                            </div>
+                        `;
+                }).join('');
+            }
+
+            function renderCSVPreview() {
+                // handled by file input
+            }
+
+            // ---------- TABS ----------
+            function switchTab(tab) {
+                DOM.tabBtns.forEach(btn => {
+                    const t = btn.dataset.tab;
+                    btn.className = 'tab-btn ' + (t === tab ? 'tab-active' : 'tab-inactive') +
+                        ' px-4 py-2 text-sm font-medium';
+                });
+                Object.keys(DOM.tabContents).forEach(key => {
+                    DOM.tabContents[key].classList.toggle('hidden', key !== tab);
+                });
+            }
+
+            // ---------- TOPIC MODAL ----------
+            function openTopicModal(index) {
+                const c = state.currentCourse;
+                const topics = c?.topics || [];
+                const isEdit = index >= 0 && index < topics.length;
+                DOM.topicModalTitle.textContent = isEdit ? 'Edit Topic' : 'Add Topic';
+                DOM.topicModalIndex.value = index;
+
+                if (isEdit) {
+                    const t = topics[index];
+                    DOM.topicTitleInput.value = t.title || '';
+                    DOM.topicContentInput.value = t.content || '';
+                    DOM.topicImageInput.value = '';
+                    // Show existing images
+                    const preview = DOM.topicImagePreview;
+                    preview.innerHTML = (t.images || []).map(url =>
+                        `<img src="${url}" class="image-preview" />`
+                    ).join('');
+                } else {
+                    DOM.topicTitleInput.value = '';
+                    DOM.topicContentInput.value = '';
+                    DOM.topicImageInput.value = '';
+                    DOM.topicImagePreview.innerHTML = '';
+                }
+                DOM.topicModal.classList.remove('hidden');
+            }
+
+            function closeTopicModal() {
+                DOM.topicModal.classList.add('hidden');
+            }
+
+            function saveTopicFromModal() {
+                const c = state.currentCourse;
+                const idx = parseInt(DOM.topicModalIndex.value);
+                const title = DOM.topicTitleInput.value.trim();
+                const content = DOM.topicContentInput.value.trim();
+                if (!title) { alert('Topic title is required.'); return; }
+
+                const topic = {
+                    title,
+                    content: content || '',
+                    images: [],
+                };
+                // Collect images from preview
+                const preview = DOM.topicImagePreview;
+                const imgElements = preview.querySelectorAll('img');
+                imgElements.forEach(img => {
+                    const url = img.src;
+                    if (url && !topic.images.includes(url)) topic.images.push(url);
+                });
+
+                if (!c.topics) c.topics = [];
+                if (idx >= 0 && idx < c.topics.length) {
+                    // Edit: preserve existing images not shown? We'll replace.
+                    c.topics[idx] = topic;
+                } else {
+                    c.topics.push(topic);
+                }
+                closeTopicModal();
+                renderTopics();
+            }
+
+            // ---------- QUESTION MODAL ----------
+            function openQuestionModal(index) {
+                const c = state.currentCourse;
+                const questions = c?.practice_questions || [];
+                const isEdit = index >= 0 && index < questions.length;
+                DOM.questionModalTitle.textContent = isEdit ? 'Edit Question' : 'Add Practice Question';
+                DOM.questionModalIndex.value = index;
+
+                if (isEdit) {
+                    const q = questions[index];
+                    DOM.questionTextInput.value = q.question || '';
+                    DOM.qOptA.value = q.options?.[0] || '';
+                    DOM.qOptB.value = q.options?.[1] || '';
+                    DOM.qOptC.value = q.options?.[2] || '';
+                    DOM.qOptD.value = q.options?.[3] || '';
+                    DOM.qCorrect.value = q.correct || 'A';
+                    DOM.qReasoning.value = q.reasoning || '';
+                } else {
+                    DOM.questionTextInput.value = '';
+                    DOM.qOptA.value = '';
+                    DOM.qOptB.value = '';
+                    DOM.qOptC.value = '';
+                    DOM.qOptD.value = '';
+                    DOM.qCorrect.value = 'A';
+                    DOM.qReasoning.value = '';
+                }
+                DOM.questionModal.classList.remove('hidden');
+            }
+
+            function closeQuestionModal() {
+                DOM.questionModal.classList.add('hidden');
+            }
+
+            function saveQuestionFromModal() {
+                const c = state.currentCourse;
+                const idx = parseInt(DOM.questionModalIndex.value);
+                const question = DOM.questionTextInput.value.trim();
+                const optA = DOM.qOptA.value.trim();
+                const optB = DOM.qOptB.value.trim();
+                const optC = DOM.qOptC.value.trim();
+                const optD = DOM.qOptD.value.trim();
+                const correct = DOM.qCorrect.value;
+                const reasoning = DOM.qReasoning.value.trim();
+
+                if (!question) { alert('Question text is required.'); return; }
+                if (!optA || !optB || !optC || !optD) { alert('All four options are required.'); return; }
+
+                const qObj = {
+                    id: 'q_' + generateId(),
+                    question,
+                    options: [optA, optB, optC, optD],
+                    correct,
+                    reasoning: reasoning || '',
+                };
+
+                if (!c.practice_questions) c.practice_questions = [];
+                if (idx >= 0 && idx < c.practice_questions.length) {
+                    c.practice_questions[idx] = qObj;
+                } else {
+                    c.practice_questions.push(qObj);
+                }
+                closeQuestionModal();
+                renderQuestions();
+            }
+
+            // ---------- CSV IMPORT ----------
+            function handleCSVFile(file) {
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const text = e.target.result;
+                    const lines = text.split('\n').filter(line => line.trim());
+                    if (lines.length < 2) {
+                        alert('CSV must have a header row and at least one data row.');
+                        return;
+                    }
+                    // Parse CSV (simple)
+                    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+                    const dataRows = lines.slice(1).map(line => {
+                        const parts = line.split(',');
+                        const obj = {};
+                        headers.forEach((h, i) => { obj[h] = (parts[i] || '').trim(); });
+                        return obj;
+                    });
+
+                    // Build course from CSV
+                    const c = state.currentCourse;
+                    if (!c) return;
+
+                    // Clear existing topics and questions
+                    c.topics = [];
+                    c.practice_questions = [];
+
+                    dataRows.forEach(row => {
+                        const topicTitle = row.topic || 'Topic';
+                        const content = row.content || '';
+                        const question = row.question || '';
+                        const optA = row.option_a || '';
+                        const optB = row.option_b || '';
+                        const optC = row.option_c || '';
+                        const optD = row.option_d || '';
+                        const correct = row.correct_answer || 'A';
+                        const reasoning = row.reasoning || '';
+
+                        // Add topic if content exists
+                        if (content || topicTitle) {
+                            c.topics.push({
+                                title: topicTitle || 'Untitled Topic',
+                                content: content || '',
+                                images: [],
+                            });
+                        }
+
+                        // Add question if question text exists
+                        if (question && optA && optB && optC && optD) {
+                            c.practice_questions.push({
+                                id: 'q_' + generateId(),
+                                question,
+                                options: [optA, optB, optC, optD],
+                                correct: correct.toUpperCase(),
+                                reasoning: reasoning || '',
+                            });
+                        }
+                    });
+
+                    // Also set course title/description from first row if available
+                    if (dataRows.length > 0) {
+                        const first = dataRows[0];
+                        if (first.course_title && !c.title) c.title = first.course_title;
+                        if (first.course_description && !c.description) c.description = first.course_description;
+                    }
+
+                    renderTopics();
+                    renderQuestions();
+                    DOM.csvPreview.classList.add('hidden');
+                    alert('CSV imported successfully! ' + c.topics.length + ' topics, ' + c.practice_questions.length +
+                        ' questions.');
+                };
+                reader.readAsText(file);
+            }
+
+            // ============================================================
+            // 9. STUDENT VIEW
+            // ============================================================
+            function renderStudentView() {
+                if (state.view === 'player' && state.playerCourse) {
+                    renderStudentPlayer();
+                    return;
+                }
+                state.view = 'dashboard';
+                DOM.studentDashboard.classList.remove('hidden');
+                DOM.studentCoursePlayer.classList.add('hidden');
+                renderStudentCourseList();
+            }
+
+            function renderStudentCourseList() {
+                const container = DOM.studentCourseList;
+                const empty = DOM.studentEmptyState;
+                const search = DOM.courseSearchInput.value.toLowerCase().trim();
+                const filter = DOM.courseFilterSelect.value;
+                const sort = DOM.courseSortSelect.value;
+
+                let courses = [...state.courses];
+
+                // Search
+                if (search) {
+                    courses = courses.filter(c =>
+                        c.title?.toLowerCase().includes(search) ||
+                        c.description?.toLowerCase().includes(search)
+                    );
+                }
+
+                // Filter
+                if (filter === 'my' && state.user) {
+                    // For demo, if student has progress, show those
+                    // We'll just show all for demo simplicity
+                }
+
+                // Sort
+                if (sort === 'newest') {
+                    courses.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                } else if (sort === 'oldest') {
+                    courses.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+                } else if (sort === 'title') {
+                    courses.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+                }
+
+                if (courses.length === 0) {
+                    container.innerHTML = '';
+                    empty.classList.remove('hidden');
+                    return;
+                }
+                empty.classList.add('hidden');
+
+                container.innerHTML = courses.map(c => {
+                    const progress = state.user ? DB.getStudentProgress(c.id, state.user.id) : null;
+                    const pct = progress ? Math.round((progress.completed_topics?.length || 0) / (c.topics?.length ||
+                        1) * 100) : 0;
+                    return `
+                            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden card-hover transition-all">
+                                ${c.image_url ? `<img src="${c.image_url}" alt="${c.title}" class="w-full h-40 object-cover" />` : `<div class="w-full h-40 bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center text-gray-400"><i class="fas fa-book-open text-4xl"></i></div>`}
+                                <div class="p-5">
+                                    <h3 class="font-bold text-gray-800 text-lg truncate">${c.title}</h3>
+                                    <p class="text-gray-500 text-sm mt-1 line-clamp-2">${truncate(c.description, 80)}</p>
+                                    <div class="flex items-center gap-2 mt-3 flex-wrap">
+                                        <span class="badge badge-blue">${c.topics?.length || 0} topics</span>
+                                        <span class="badge badge-gray">${c.practice_questions?.length || 0} questions</span>
+                                        ${pct > 0 ? `<span class="badge ${pct >= 80 ? 'badge-green' : 'badge-yellow'}">${pct}% done</span>` : ''}
+                                    </div>
+                                    <button class="take-course-btn w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2" data-course-id="${c.id}">
+                                        <i class="fas fa-play"></i> ${pct > 0 ? 'Resume' : 'Start'} Course
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                }).join('');
+
+                container.querySelectorAll('.take-course-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const id = btn.dataset.courseId;
+                        openStudentCourse(id);
+                    });
+                });
+            }
+
+            async function openStudentCourse(courseId) {
+                const course = state.courses.find(c => c.id === courseId);
+                if (!course) { alert('Course not found'); return; }
+
+                state.playerCourse = JSON.parse(JSON.stringify(course));
+                state.playerTopicIndex = 0;
+
+                // Load student progress
+                if (state.user) {
+                    const progress = await DB.getStudentProgress(courseId, state.user.id);
+                    if (progress) {
+                        state.playerProgress = progress;
+                        state.playerTopicIndex = progress.current_topic || 0;
+                    } else {
+                        state.playerProgress = null;
+                    }
+                }
+
+                // Load practice answers
+                if (state.user) {
+                    const answers = await DB.getPracticeAnswers(courseId, state.user.id);
+                    state.studentAnswers = {};
+                    answers.forEach(a => {
+                        state.studentAnswers[a.question_id] = a.selected_answer;
+                    });
+                }
+
+                state.view = 'player';
+                DOM.studentDashboard.classList.add('hidden');
+                DOM.studentCoursePlayer.classList.remove('hidden');
+                renderStudentPlayer();
+            }
+
+            function renderStudentPlayer() {
+                const c = state.playerCourse;
+                if (!c) return;
+
+                DOM.playerCourseTitle.textContent = c.title || 'Course';
+
+                const topics = c.topics || [];
+                const total = topics.length || 1;
+                const current = Math.min(state.playerTopicIndex, total - 1);
+
+                // Progress
+                const completed = state.playerProgress?.completed_topics || [];
+                const pct = Math.round((completed.length / total) * 100);
+                DOM.playerProgressBadge.textContent = pct + '%';
+                DOM.playerProgressFill.style.width = pct + '%';
+
+                // Topic content
+                const topic = topics[current] || { title: 'No topics', content: '', images: [] };
+                const isCompleted = completed.includes(current);
+
+                DOM.playerTopicContent.innerHTML = `
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="badge ${isCompleted ? 'badge-green' : 'badge-blue'}">${isCompleted ? '✅ Completed' : '📖 ' + (current+1) + '/' + total}</span>
+                            <h3 class="text-xl font-bold text-gray-800">${topic.title || 'Untitled'}</h3>
+                        </div>
+                        <div class="prose max-w-none text-gray-700">
+                            ${topic.content || '<p class="text-gray-400 italic">No content for this topic.</p>'}
+                        </div>
+                        ${topic.images && topic.images.length > 0 ? topic.images.map(url => `<img src="${url}" class="image-preview-lg mt-3" />`).join('') : ''}
+                        <div class="mt-4 flex gap-2">
+                            <button id="playerMarkComplete" class="bg-green-50 hover:bg-green-100 text-green-700 px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5">
+                                <i class="fas fa-check"></i> ${isCompleted ? 'Already Completed' : 'Mark Complete'}
+                            </button>
+                        </div>
+                    `;
+
+                const markBtn = DOM.playerTopicContent.querySelector('#playerMarkComplete');
+                if (markBtn) {
+                    markBtn.addEventListener('click', async () => {
+                        if (!state.user) { alert('Please sign in to track progress.'); return; }
+                        const completed = state.playerProgress?.completed_topics || [];
+                        if (!completed.includes(current)) {
+                            completed.push(current);
+                            const prog = {
+                                student_id: state.user.id,
+                                course_id: c.id,
+                                current_topic: current,
+                                completed_topics: completed,
+                                started_at: state.playerProgress?.started_at || new Date().toISOString(),
+                                last_accessed: new Date().toISOString(),
+                            };
+                            if (state.playerProgress?.id) {
+                                prog.id = state.playerProgress.id;
+                            }
+                            const saved = await DB.saveStudentProgress(prog);
+                            if (saved) {
+                                state.playerProgress = prog;
+                                renderStudentPlayer();
+                            }
+                        }
+                    });
+                }
+
+                // Render practice questions for this topic
+                const questions = c.practice_questions || [];
+                const qContainer = DOM.playerQuestions;
+                const qEmpty = DOM.playerQuestionsEmpty;
+
+                if (questions.length === 0) {
+                    qContainer.innerHTML = '';
+                    qEmpty.classList.remove('hidden');
+                    return;
+                }
+                qEmpty.classList.add('hidden');
+
+                qContainer.innerHTML = questions.map((q, idx) => {
+                    const selected = state.studentAnswers[q.id] || null;
+                    const isAnswered = selected !== null;
+                    const isCorrect = selected === q.correct;
+                    let optionClass = 'question-option';
+                    if (isAnswered) {
+                        optionClass += ' disabled';
+                        if (selected === q.correct) optionClass += ' correct';
+                        else optionClass += ' wrong';
+                    }
+
+                    const optionsHtml = q.options.map((opt, oi) => {
+                        const letter = String.fromCharCode(65 + oi);
+                        const isSelected = selected === letter;
+                        let cls = optionClass;
+                        if (isSelected) cls += ' selected';
+                        if (isAnswered && letter === q.correct) cls += ' correct';
+                        if (isAnswered && isSelected && letter !== q.correct) cls += ' wrong';
+                        return `
+                                <div class="${cls}" data-qid="${q.id}" data-opt="${letter}" data-answered="${isAnswered}">
+                                    <span class="font-medium">${letter}.</span> ${opt}
+                                    ${isAnswered && letter === q.correct ? ' ✅' : ''}
+                                    ${isAnswered && isSelected && letter !== q.correct ? ' ❌' : ''}
+                                </div>
+                            `;
+                    }).join('');
+
+                    return `
+                            <div class="mb-5 pb-4 border-b border-gray-100 last:border-0">
+                                <div class="font-medium text-gray-800 mb-2">Q${idx+1}: ${q.question}</div>
+                                <div class="space-y-2">${optionsHtml}</div>
+                                ${isAnswered ? `<div class="mt-2 text-sm ${isCorrect ? 'text-green-600' : 'text-red-600'} bg-${isCorrect ? 'green' : 'red'}-50 p-3 rounded-xl">${isCorrect ? '✅ Correct!' : '❌ Incorrect'} — ${q.reasoning || 'No explanation provided.'}</div>` : ''}
+                            </div>
+                        `;
+                }).join('');
+
+                // Add click handlers for options
+                qContainer.querySelectorAll('.question-option:not(.disabled)').forEach(el => {
+                    el.addEventListener('click', async () => {
+                        const qid = el.dataset.qid;
+                        const opt = el.dataset.opt;
+                        const answered = el.dataset.answered === 'true';
+                        if (answered || !state.user) return;
+
+                        // Save answer
+                        const answer = {
+                            student_id: state.user.id,
+                            course_id: c.id,
+                            question_id: qid,
+                            selected_answer: opt,
+                            attempted_at: new Date().toISOString(),
+                        };
+                        await DB.savePracticeAnswer(answer);
+                        state.studentAnswers[qid] = opt;
+                        renderStudentPlayer();
+                    });
+                });
+
+                // Navigation
+                DOM.playerPrevTopic.onclick = () => {
+                    if (current > 0) {
+                        state.playerTopicIndex = current - 1;
+                        renderStudentPlayer();
+                    }
+                };
+                DOM.playerNextTopic.onclick = () => {
+                    if (current < total - 1) {
+                        state.playerTopicIndex = current + 1;
+                        renderStudentPlayer();
+                    }
+                };
+
+                DOM.playerResetProgress.onclick = async () => {
+                    if (!state.user || !confirm('Reset progress for this course?')) return;
+                    const prog = {
+                        student_id: state.user.id,
+                        course_id: c.id,
+                        current_topic: 0,
+                        completed_topics: [],
+                        started_at: new Date().toISOString(),
+                        last_accessed: new Date().toISOString(),
+                    };
+                    if (state.playerProgress?.id) {
+                        prog.id = state.playerProgress.id;
+                    }
+                    await DB.saveStudentProgress(prog);
+                    state.playerProgress = prog;
+                    state.playerTopicIndex = 0;
+                    state.studentAnswers = {};
+                    renderStudentPlayer();
+                };
+            }
+
+            // ============================================================
+            // 10. EVENT BINDING
+            // ============================================================
+            function initEvents() {
+                // Role switcher
+                DOM.roleTeacherBtn.addEventListener('click', () => {
+                    if (state.role === 'teacher') return;
+                    state.role = 'teacher';
+                    state.view = 'dashboard';
+                    renderAll();
+                });
+                DOM.roleStudentBtn.addEventListener('click', () => {
+                    if (state.role === 'student') return;
+                    state.role = 'student';
+                    state.view = 'dashboard';
+                    renderAll();
+                });
+
+                // Auth
+                DOM.authBtn.addEventListener('click', handleAuth);
+
+                // Create course
+                DOM.createCourseBtn.addEventListener('click', () => {
+                    if (!state.user) { alert('Please sign in as a teacher first.'); return; }
+                    openCourseEditor('new');
+                });
+
+                // Back to dashboard
+                DOM.backToDashboardBtn.addEventListener('click', () => {
+                    state.view = 'dashboard';
+                    renderTeacherView();
+                });
+
+                DOM.backToStudentDashboardBtn.addEventListener('click', () => {
+                    state.view = 'dashboard';
+                    renderStudentView();
+                });
+
+                // Save course
+                DOM.saveCourseBtn.addEventListener('click', async () => {
+                    const c = state.currentCourse;
+                    if (!c) return;
+                    c.title = DOM.courseTitle.value.trim();
+                    c.description = DOM.courseDescription.value.trim();
+                    c.image_url = DOM.courseImageUrl.value.trim();
+                    c.updated_at = new Date().toISOString();
+                    if (!c.title) { alert('Course title is required.'); return; }
+                    if (!c.description) { alert('Course description is required.'); return; }
+
+                    // Ensure IDs for questions
+                    (c.practice_questions || []).forEach(q => {
+                        if (!q.id) q.id = 'q_' + generateId();
+                    });
+
+                    const saved = await DB.saveCourse(c);
+                    if (saved) {
+                        await loadCourses();
+                        // Find the updated course
+                        const updated = state.courses.find(cr => cr.id === c.id);
+                        if (updated) state.currentCourse = updated;
+                        alert('Course saved successfully!');
+                        renderTeacherView();
+                    } else {
+                        alert('Failed to save course. Check console for errors.');
+                    }
+                });
+
+                // Delete course
+                DOM.deleteCourseBtn.addEventListener('click', async () => {
+                    const c = state.currentCourse;
+                    if (!c || !c.id) return;
+                    if (!confirm('Delete this course permanently?')) return;
+                    const ok = await DB.deleteCourse(c.id);
+                    if (ok) {
+                        await loadCourses();
+                        state.view = 'dashboard';
+                        renderTeacherView();
+                        alert('Course deleted.');
+                    } else {
+                        alert('Failed to delete course.');
+                    }
+                });
+
+                // Topics
+                DOM.addTopicBtn.addEventListener('click', () => openTopicModal(-1));
+                DOM.topicModalCancel.addEventListener('click', closeTopicModal);
+                DOM.topicModalSave.addEventListener('click', saveTopicFromModal);
+                DOM.topicModal.addEventListener('click', (e) => {
+                    if (e.target === DOM.topicModal) closeTopicModal();
+                });
+
+                // Topic image upload
+                DOM.topicImageUploadBtn.addEventListener('click', () => {
+                    DOM.topicImageFileInput.click();
+                });
+                DOM.topicImageFileInput.addEventListener('change', async (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    // Upload to Supabase
+                    const path = 'topic-images/' + Date.now() + '_' + file.name;
+                    const url = await DB.uploadImage('course-images', path, file);
+                    if (url) {
+                        const preview = DOM.topicImagePreview;
+                        const img = document.createElement('img');
+                        img.src = url;
+                        img.className = 'image-preview';
+                        preview.appendChild(img);
+                        // Also add to current topic images
+                        const idx = parseInt(DOM.topicModalIndex.value);
+                        const c = state.currentCourse;
+                        if (idx >= 0 && idx < (c.topics || []).length) {
+                            if (!c.topics[idx].images) c.topics[idx].images = [];
+                            c.topics[idx].images.push(url);
+                        }
+                    } else {
+                        alert('Failed to upload image.');
+                    }
+                    DOM.topicImageFileInput.value = '';
+                });
+
+                // Questions
+                DOM.addQuestionBtn.addEventListener('click', () => openQuestionModal(-1));
+                DOM.questionModalCancel.addEventListener('click', closeQuestionModal);
+                DOM.questionModalSave.addEventListener('click', saveQuestionFromModal);
+                DOM.questionModal.addEventListener('click', (e) => {
+                    if (e.target === DOM.questionModal) closeQuestionModal();
+                });
+
+                // Tabs
+                DOM.tabBtns.forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        switchTab(btn.dataset.tab);
+                    });
+                });
+
+                // CSV Import
+                DOM.csvBrowseBtn.addEventListener('click', () => DOM.csvFileInput.click());
+                DOM.csvFileInput.addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        DOM.csvFileName.textContent = file.name;
+                        DOM.csvPreview.classList.remove('hidden');
+                        handleCSVFile(file);
+                    }
+                });
+                DOM.csvDropZone.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    DOM.csvDropZone.classList.add('dragover');
+                });
+                DOM.csvDropZone.addEventListener('dragleave', () => {
+                    DOM.csvDropZone.classList.remove('dragover');
+                });
+                DOM.csvDropZone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    DOM.csvDropZone.classList.remove('dragover');
+                    const file = e.dataTransfer.files[0];
+                    if (file) {
+                        DOM.csvFileName.textContent = file.name;
+                        DOM.csvPreview.classList.remove('hidden');
+                        handleCSVFile(file);
+                    }
+                });
+                DOM.csvDropZone.addEventListener('click', () => DOM.csvFileInput.click());
+
+                DOM.csvImportBtn.addEventListener('click', () => {
+                    // Already handled in handleCSVFile
+                    alert('Course data imported from CSV. Review topics and questions, then save.');
+                });
+
+                // Student search/filter/sort
+                DOM.courseSearchInput.addEventListener('input', renderStudentCourseList);
+                DOM.courseFilterSelect.addEventListener('change', renderStudentCourseList);
+                DOM.courseSortSelect.addEventListener('change', renderStudentCourseList);
+
+                // Keyboard shortcut: Escape to close modals
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') {
+                        closeTopicModal();
+                        closeQuestionModal();
+                    }
+                });
+
+                // Check auth state changes
+                supabase.auth.onAuthStateChange(async (event, session) => {
+                    if (event === 'SIGNED_IN' && session) {
+                        state.session = session;
+                        state.user = session.user;
+                        updateAuthUI();
+                        await loadCourses();
+                        renderAll();
+                    } else if (event === 'SIGNED_OUT') {
+                        state.user = null;
+                        state.session = null;
+                        updateAuthUI();
+                        await loadCourses();
+                        renderAll();
+                    }
+                });
+            }
+
+            // ============================================================
+            // 11. INIT
+            // ============================================================
+            async function init() {
+                // Check for URL hash params (OAuth redirect)
+                await checkAuth();
+                initEvents();
+                renderAll();
+
+                console.log('🚀 EduFlow initialized');
+                console.log('ℹ️  Using Supabase URL:', SUPABASE_URL);
+                console.log('ℹ️  Role:', state.role);
+                console.log('ℹ️  User:', state.user?.email || 'Not signed in');
+                console.log('📚 Courses loaded:', state.courses.length);
+            }
+
+            // Make sure supabaseJs is loaded
+            if (typeof supabaseJs === 'undefined') {
+                // Fallback if CDN fails
+                console.warn('Supabase JS not loaded, using mock client.');
+                window.supabaseJs = { createClient: () => createMockSupabase() };
+            }
+
+            // Start app
+            init();
+
+        })();
+    </script>
+</body>
+</html>
