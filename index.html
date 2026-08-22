@@ -393,8 +393,14 @@
                         </div>
 
                         <!-- Save Course -->
-                        <div class="mt-6 pt-4 border-t border-gray-200 flex justify-end gap-3">
+                        <div class="mt-6 pt-4 border-t border-gray-200 flex justify-end gap-3 mr-auto sm:mr-0">
                             <button id="deleteCourseBtn" class="text-red-500 hover:text-red-700 text-sm font-medium transition-all px-4 py-2">Delete Course</button>
+                            <button id="exportCourseBtn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-5 py-2.5 rounded-xl text-sm font-medium transition-all shadow-sm flex items-center gap-2">
+                                <i class="fas fa-file-download"></i> Export CSV
+                            </button>
+                            <button id="exportJsonBtn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-5 py-2.5 rounded-xl text-sm font-medium transition-all shadow-sm flex items-center gap-2">
+                                <i class="fas fa-file-code"></i> Export JSON
+                            </button>
                             <button id="saveCourseBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl text-sm font-medium transition-all shadow-sm flex items-center gap-2">
                                 <i class="fas fa-save"></i> Save Course
                             </button>
@@ -579,7 +585,82 @@
             }
 
             function createMockSupabase() {
-                // Simple localStorage-based mock for demo
+                // Helper to get mock data from localStorage
+                function getMockData(table) {
+                    const key = 'mock_' + table;
+                    const data = localStorage.getItem(key);
+                    return data ? JSON.parse(data) : [];
+                }
+
+                function saveMockData(table, data) {
+                    localStorage.setItem('mock_' + table, JSON.stringify(data));
+                }
+
+                class MockQueryBuilder {
+                    constructor(table) {
+                        this.table = table;
+                        this.filters = [];
+                        this.orderCol = null;
+                        this.ascending = true;
+                    }
+
+                    select(cols) {
+                        return this;
+                    }
+
+                    eq(col, val) {
+                        this.filters.push({ type: 'eq', col, val });
+                        return this;
+                    }
+
+                    ilike(col, pattern) {
+                        this.filters.push({ type: 'ilike', col, val: pattern });
+                        return this;
+                    }
+
+                    order(col, opts = {}) {
+                        this.orderCol = col;
+                        this.ascending = opts.ascending !== false;
+                        return this;
+                    }
+
+                    then(onfulfilled, onrejected) {
+                        return this.execute().then(onfulfilled, onrejected);
+                    }
+
+                    async execute() {
+                        let data = getMockData(this.table);
+
+                        // Apply filters
+                        for (const filter of this.filters) {
+                            if (filter.type === 'eq') {
+                                data = data.filter(row => row[filter.col] === filter.val);
+                            } else if (filter.type === 'ilike') {
+                                const pattern = filter.val.replace(/%/g, '').toLowerCase();
+                                data = data.filter(row => row[filter.col] && row[filter.col].toLowerCase().includes(pattern));
+                            }
+                        }
+
+                        // Apply ordering
+                        if (this.orderCol) {
+                            data.sort((a, b) => {
+                                const valA = a[this.orderCol];
+                                const valB = b[this.orderCol];
+                                if (valA < valB) return this.ascending ? -1 : 1;
+                                if (valA > valB) return this.ascending ? 1 : -1;
+                                return 0;
+                            });
+                        }
+
+                        return { data, error: null };
+                    }
+
+                    async single() {
+                        const { data, error } = await this.execute();
+                        return { data: data && data.length > 0 ? data[0] : null, error };
+                    }
+                }
+
                 return {
                     auth: {
                         signInWithOAuth: (params) => {
@@ -604,31 +685,7 @@
                         }
                     },
                     from: (table) => ({
-                        select: (cols) => ({
-                            order: (col, opts) => {
-                                const data = getMockData(table);
-                                return Promise.resolve({ data, error: null });
-                            },
-                            eq: (col, val) => ({
-                                select: (cols) => ({
-                                    single: () => {
-                                        const data = getMockData(table).find(d => d[col] === val);
-                                        return Promise.resolve({ data, error: null });
-                                    },
-                                    order: (c, o) => {
-                                        const d = getMockData(table).filter(x => x[col] === val);
-                                        return Promise.resolve({ data: d, error: null });
-                                    }
-                                })
-                            }),
-                            ilike: (col, pattern) => ({
-                                order: (c, o) => {
-                                    const d = getMockData(table).filter(x => x[col] && x[col].toLowerCase().includes(pattern
-                                        .replace(/%/g, '').toLowerCase()));
-                                    return Promise.resolve({ data: d, error: null });
-                                }
-                            })
-                        }),
+                        select: (cols) => new MockQueryBuilder(table),
                         insert: (data) => {
                             const d = Array.isArray(data) ? data : [data];
                             const tableData = getMockData(table);
@@ -644,7 +701,7 @@
                                 const idx = tableData.findIndex(d => d[col] === val);
                                 if (idx >= 0) { Object.assign(tableData[idx], data); }
                                 saveMockData(table, tableData);
-                                return Promise.resolve({ data: [tableData[idx]], error: null });
+                                return Promise.resolve({ data: idx >= 0 ? [tableData[idx]] : [], error: null });
                             }
                         }),
                         delete: () => ({
@@ -712,6 +769,7 @@
                 playerTopicIndex: 0,
                 playerProgress: null, // { completed_topics: [], current_topic: 0 }
                 studentAnswers: {}, // { questionId: selectedOption }
+                studentProgressList: [], // cached list of progress records for student dashboard
                 // UI
                 view: 'dashboard', // 'dashboard' | 'editor' | 'player'
             };
@@ -753,6 +811,8 @@
                 courseDescription: $('#courseDescription'),
                 saveCourseBtn: $('#saveCourseBtn'),
                 deleteCourseBtn: $('#deleteCourseBtn'),
+                exportCourseBtn: $('#exportCourseBtn'),
+                exportJsonBtn: $('#exportJsonBtn'),
 
                 // Topics
                 topicsList: $('#topicsList'),
@@ -882,6 +942,7 @@
                         if (error) { console.error('update course error:', error); return null; }
                         return data;
                     } else {
+                        course.id = 'c_' + generateId();
                         const { data, error } = await supabase
                             .from('courses')
                             .insert([course]);
@@ -908,6 +969,15 @@
                         .single();
                     if (error && error.code !== 'PGRST116') { console.error('getStudentProgress error:', error); }
                     return data || null;
+                },
+
+                async getStudentProgressList(studentId) {
+                    const { data, error } = await supabase
+                        .from('student_progress')
+                        .select('*')
+                        .eq('student_id', studentId);
+                    if (error) { console.error('getStudentProgressList error:', error); return []; }
+                    return data || [];
                 },
 
                 async saveStudentProgress(progress) {
@@ -1043,6 +1113,13 @@
                 if (state.courses.length === 0) {
                     seedMockData();
                     state.courses = await DB.getCourses();
+                }
+
+                // Load student progress for all courses
+                if (state.user) {
+                    state.studentProgressList = await DB.getStudentProgressList(state.user.id);
+                } else {
+                    state.studentProgressList = [];
                 }
             }
 
@@ -1653,7 +1730,7 @@
                 empty.classList.add('hidden');
 
                 container.innerHTML = courses.map(c => {
-                    const progress = state.user ? DB.getStudentProgress(c.id, state.user.id) : null;
+                    const progress = (state.user && state.studentProgressList) ? state.studentProgressList.find(p => p.course_id === c.id) : null;
                     const pct = progress ? Math.round((progress.completed_topics?.length || 0) / (c.topics?.length ||
                         1) * 100) : 0;
                     return `
@@ -1917,8 +1994,9 @@
                     renderTeacherView();
                 });
 
-                DOM.backToStudentDashboardBtn.addEventListener('click', () => {
+                DOM.backToStudentDashboardBtn.addEventListener('click', async () => {
                     state.view = 'dashboard';
+                    await loadCourses();
                     renderStudentView();
                 });
 
@@ -1965,6 +2043,95 @@
                     } else {
                         alert('Failed to delete course.');
                     }
+                });
+
+                // Export course
+                DOM.exportCourseBtn.addEventListener('click', () => {
+                    const c = state.currentCourse;
+                    if (!c) return;
+
+                    // Ensure we get the latest text values from the inputs
+                    const title = DOM.courseTitle.value.trim() || c.title || 'Untitled Course';
+                    const description = DOM.courseDescription.value.trim() || c.description || '';
+
+                    const topics = c.topics || [];
+                    const questions = c.practice_questions || [];
+
+                    const headers = ['course_title', 'course_description', 'topic', 'content', 'question', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer', 'reasoning'];
+                    const rows = [headers];
+
+                    const maxRows = Math.max(topics.length, questions.length, 1);
+
+                    function escapeCSVField(val) {
+                        if (val === undefined || val === null) return '';
+                        let str = String(val);
+                        if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+                            return '"' + str.replace(/"/g, '""') + '"';
+                        }
+                        return str;
+                    }
+
+                    for (let i = 0; i < maxRows; i++) {
+                        const t = topics[i] || {};
+                        const q = questions[i] || {};
+                        
+                        const row = [
+                            i === 0 ? title : '',
+                            i === 0 ? description : '',
+                            t.title || '',
+                            t.content || '',
+                            q.question || '',
+                            q.options?.[0] || '',
+                            q.options?.[1] || '',
+                            q.options?.[2] || '',
+                            q.options?.[3] || '',
+                            q.correct || '',
+                            q.reasoning || ''
+                        ];
+                        rows.push(row.map(escapeCSVField));
+                    }
+
+                    const csvContent = rows.map(r => r.join(',')).join('\n');
+                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const link = document.createElement('a');
+                    link.setAttribute('href', url);
+                    link.setAttribute('download', `${title.replace(/[^a-z0-9]/gi, '_')}.csv`);
+                    link.style.visibility = 'hidden';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                });
+
+                // Export JSON
+                DOM.exportJsonBtn.addEventListener('click', () => {
+                    const c = state.currentCourse;
+                    if (!c) return;
+
+                    // Ensure we get the latest text values from the inputs
+                    const title = DOM.courseTitle.value.trim() || c.title || 'Untitled Course';
+                    const description = DOM.courseDescription.value.trim() || c.description || '';
+
+                    const courseData = {
+                        title,
+                        description,
+                        image_url: DOM.courseImageUrl.value.trim() || c.image_url || '',
+                        topics: c.topics || [],
+                        practice_questions: c.practice_questions || []
+                    };
+
+                    const jsonContent = JSON.stringify(courseData, null, 4);
+                    const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const link = document.createElement('a');
+                    link.setAttribute('href', url);
+                    link.setAttribute('download', `${title.replace(/[^a-z0-9]/gi, '_')}.json`);
+                    link.style.visibility = 'hidden';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
                 });
 
                 // Topics
