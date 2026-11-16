@@ -10,6 +10,8 @@
     <!-- Supabase JS SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
     </script>
+    <!-- Central School Auth -->
+    <script src="school-auth.js"></script>
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
     <style>
@@ -566,21 +568,19 @@
             'use strict';
 
             // ============================================================
-            // 1. SUPABASE CONFIG
+            // 1. CENTRAL SUPABASE CONFIG (smart-school-automation)
             // ============================================================
-            const SUPABASE_URL = 'https://your-project-url.supabase.co'; // <-- REPLACE
-            const SUPABASE_ANON_KEY = 'your-anon-key'; // <-- REPLACE
-
-            // For demo, we'll use a mock/fallback if keys are not set
-            // In production, you must set these.
+            const SUPABASE_URL = 'https://blqnzrhiatvfydmswprb.supabase.co';
+            const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJscW56cmhpYXR2ZnlkbXN3cHJiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ2NjM3ODYsImV4cCI6MjExMDIzOTc4Nn0.9PytkMfnlmr909cEy5-J3-3Gzuxh81rSKLvz0pnJQGU';
 
             let supabase;
             try {
-                const { createClient } = supabaseJs;
+                const supabaseLib = window.supabase || window.supabaseJs;
+                if (!supabaseLib) throw new Error('Supabase SDK not loaded');
+                const { createClient } = supabaseLib;
                 supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
             } catch (e) {
-                console.warn('Supabase client init error, using mock client for demo.', e);
-                // Mock client for demo (localStorage fallback)
+                console.warn('Supabase client init error, using mock client fallback.', e);
                 supabase = createMockSupabase();
             }
 
@@ -981,18 +981,28 @@
                 },
 
                 async saveStudentProgress(progress) {
+                    const studentUUID = state.user?.uuid || (state.user?.id && state.user.id.length === 36 ? state.user.id : null);
+                    const payload = {
+                        student_id: progress.student_id,
+                        student_uuid: studentUUID,
+                        course_id: progress.course_id,
+                        current_topic: progress.current_topic || 0,
+                        completed_topics: progress.completed_topics || [],
+                        started_at: progress.started_at || new Date().toISOString(),
+                        last_accessed: new Date().toISOString()
+                    };
                     if (progress.id) {
                         const { data, error } = await supabase
                             .from('student_progress')
-                            .update(progress)
+                            .update(payload)
                             .eq('id', progress.id);
                         if (error) { console.error('update progress error:', error); return null; }
                         return data;
                     } else {
                         const { data, error } = await supabase
                             .from('student_progress')
-                            .insert([progress]);
-                        if (error) { console.error('insert progress error:', error); return null; }
+                            .upsert([payload], { onConflict: 'student_id,course_id' });
+                        if (error) { console.error('upsert progress error:', error); return null; }
                         return data;
                     }
                 },
@@ -1008,9 +1018,18 @@
                 },
 
                 async savePracticeAnswer(answer) {
+                    const studentUUID = state.user?.uuid || (state.user?.id && state.user.id.length === 36 ? state.user.id : null);
+                    const payload = {
+                        student_id: answer.student_id,
+                        student_uuid: studentUUID,
+                        course_id: answer.course_id,
+                        question_id: answer.question_id,
+                        selected_answer: answer.selected_answer,
+                        attempted_at: new Date().toISOString()
+                    };
                     const { data, error } = await supabase
                         .from('practice_answers')
-                        .insert([answer]);
+                        .insert([payload]);
                     if (error) { console.error('savePracticeAnswer error:', error); return null; }
                     return data;
                 },
@@ -1035,12 +1054,17 @@
             };
 
             // ============================================================
-            // 6. AUTH
+            // 6. CENTRAL AUTH & STUDENT IDENTITY
             // ============================================================
             async function handleAuth() {
                 if (state.user) {
                     // Sign out
-                    await supabase.auth.signOut();
+                    if (typeof SchoolAuth !== 'undefined') {
+                        SchoolAuth.logout();
+                    }
+                    if (supabase && supabase.auth) {
+                        try { await supabase.auth.signOut(); } catch (e) {}
+                    }
                     state.user = null;
                     state.session = null;
                     updateAuthUI();
@@ -1049,40 +1073,53 @@
                     return;
                 }
 
-                // Sign in with Google
-                const { data, error } = await supabase.auth.signInWithOAuth({
-                    provider: 'google',
-                    options: {
-                        redirectTo: window.location.origin,
-                    },
-                });
-                if (error) {
-                    console.error('Auth error:', error);
-                    alert('Sign in failed: ' + error.message);
+                // If not signed in, show Unified School Auth Modal
+                if (typeof SchoolAuth !== 'undefined') {
+                    SchoolAuth.showAuthModal(() => {
+                        checkAuth();
+                    });
+                } else if (supabase && supabase.auth) {
+                    // Fallback to Google OAuth
+                    await supabase.auth.signInWithOAuth({
+                        provider: 'google',
+                        options: { redirectTo: window.location.origin }
+                    }).catch(err => alert('Sign in error: ' + err.message));
                 }
             }
 
             async function checkAuth() {
-                const { data: { session }, error } = await supabase.auth.getSession();
-                if (error) { console.error('getSession error:', error); return; }
-                if (session) {
-                    state.session = session;
-                    state.user = session.user;
-                } else {
-                    // Check mock
-                    const mockUser = localStorage.getItem('mock_user');
-                    if (mockUser) {
-                        state.user = JSON.parse(mockUser);
-                        state.session = { user: state.user };
+                // 1. Check Central SchoolAuth session
+                if (typeof SchoolAuth !== 'undefined' && SchoolAuth.isAuthenticated()) {
+                    const student = SchoolAuth.getStudent();
+                    if (student) {
+                        state.user = {
+                            id: student.admission_number,
+                            uuid: student.id,
+                            email: student.email || `${student.admission_number}@student.internal`,
+                            user_metadata: {
+                                full_name: student.full_name,
+                                admission_number: student.admission_number,
+                                avatar_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(student.full_name)}&background=3b82f6&color=fff`
+                            }
+                        };
+                        state.role = 'student';
                     }
                 }
-                updateAuthUI();
-                if (state.user) {
-                    await loadCourses();
-                    renderAll();
-                } else {
-                    renderAll();
+
+                // 2. Check Supabase Auth session if no SchoolAuth user
+                if (!state.user && supabase && supabase.auth) {
+                    try {
+                        const { data: { session } } = await supabase.auth.getSession();
+                        if (session) {
+                            state.session = session;
+                            state.user = session.user;
+                        }
+                    } catch (e) {}
                 }
+
+                updateAuthUI();
+                await loadCourses();
+                renderAll();
             }
 
             function updateAuthUI() {
@@ -1094,9 +1131,11 @@
                     DOM.userAvatar.onerror = () => { DOM.userAvatar.src =
                         'https://ui-avatars.com/api/?name=' + encodeURIComponent(name) + '&background=3b82f6&color=fff'; };
                     DOM.authBtnText.textContent = 'Sign Out';
+                    DOM.authBtn.className = 'bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-4 py-1.5 rounded-full text-sm font-medium transition-all flex items-center gap-2';
                 } else {
                     DOM.userInfo.classList.add('hidden');
-                    DOM.authBtnText.textContent = 'Sign in with Google';
+                    DOM.authBtnText.textContent = '🔑 Student / Teacher Sign In';
+                    DOM.authBtn.className = 'bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-full text-sm font-medium transition-all flex items-center gap-2';
                 }
             }
 
@@ -2269,9 +2308,12 @@
 
             // Make sure supabaseJs is loaded
             if (typeof supabaseJs === 'undefined') {
-                // Fallback if CDN fails
-                console.warn('Supabase JS not loaded, using mock client.');
-                window.supabaseJs = { createClient: () => createMockSupabase() };
+                if (typeof window.supabase !== 'undefined') {
+                    window.supabaseJs = window.supabase;
+                } else {
+                    console.warn('Supabase JS not loaded, using mock client.');
+                    window.supabaseJs = { createClient: () => createMockSupabase() };
+                }
             }
 
             // Start app
